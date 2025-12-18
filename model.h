@@ -52,8 +52,6 @@ namespace model
       // I am doing this becase there is not batch first option here...
       src = src.permute({1, 0, 2});
       auto mask = att_mask(Xtrn.size(1)+Xtst.size(1), Xtst.size(1));
-      PRINT(src.sizes());
-      PRINT(mask.sizes());
       return decoder.forward(encoder.forward(src, mask)).
         index({Slice(Xtrn.size(1), None), Slice(), Slice()});
     }
@@ -72,18 +70,15 @@ namespace model
       return mask.masked_fill(mask==1,0.);
     }
 
+    int nparameters()
+    {
+      int total = 0;
+      for (const auto& p : this->parameters())
+      {
+        total += p.numel();
+      }
+      return total;
+    }
 
   };
-
-  namespace util 
-  {
-    torch::Tensor rest(const torch::Tensor& idx, int N)
-    {
-      TORCH_CHECK( idx.dim() == 1, "idx must be 1D" );
-      auto mask = torch::zeros({N}, torch::kBool);
-      mask.index_fill_(0, idx, true);
-      return nonzero(~mask).squeeze(1);
-    }
-  }
-
 }

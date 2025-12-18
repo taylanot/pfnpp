@@ -370,7 +370,7 @@ bool load_checkpoint(const std::string& path,
 
 torch::Tensor get_idx(int Ntotal, int Nsamp)
 {
-  return torch::randint(0,Ntotal,Nsamp);
+  return torch::randint(0,Ntotal-1,Nsamp);
 }
 
 torch::Tensor rest(const torch::Tensor& idx, int N)

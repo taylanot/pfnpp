@@ -25,6 +25,7 @@ int main(int argc, char** argv)
   cli.Register<int>("epochs", 10);                
   cli.Register<size_t>("seed", 25);              
   cli.Register<double>("lr", 0.001);           
+  cli.Register<size_t>("bins", 100);           
   cli.Register<std::string>("mode", "predict");           
   cli.Register<std::string>("path", "./");           
 
@@ -36,9 +37,10 @@ int main(int argc, char** argv)
   // -------------------------
   // Access flag values
   // -------------------------
-  int epochs = cli.Get<int>("epochs");
-  double lr = cli.Get<double>("lr");
-  size_t seed = cli.Get<size_t>("seed");
+  auto epochs = cli.Get<int>("epochs");
+  auto lr = cli.Get<double>("lr");
+  auto seed = cli.Get<size_t>("seed");
+  auto bins = cli.Get<size_t>("bins");
 
   // -------------------------
   // Print all registered flags
@@ -47,24 +49,48 @@ int main(int argc, char** argv)
 
   torch::manual_seed(seed);
 
-  auto res = prior::linear(6, 20, 1);
-  auto sets = split(res, 8);
-  PRINT(std::get<0>(res).sizes());
+  // Ahh limited memory... these big models sad sad sad 
+  torch::Tensor borders;
+  {
+    auto res = prior::linear(10000, 20, 1);
+    borders = dist::bin_borders(bins, c10::nullopt, std::get<1>(res));
+  }
 
-  model::SimplePFN model(512,8,6,6,1);
+  model::SimplePFN model(512,8,6,1024,1,bins);
+  PRINT(model.nparameters());
+  torch::optim::AdamW opt(model.parameters(),torch::optim::AdamWOptions(lr));
 
-  auto Xtrn = std::get<0>(sets); 
-  auto Xtst = std::get<1>(sets);
-  auto ytrn = std::get<2>(sets);
-  auto ytst = std::get<3>(sets);
-
-  auto pred = model.forward(Xtrn, ytrn, Xtst);
-
-  auto borders = dist::bin_borders(100, c10::nullopt, std::get<1>(res));
-
+  /* auto borders = dist::bin_borders(bins, c10::nullopt, std::get<1>(res)); */
   dist::Riemann buck(borders,true);
 
-  PRINT(buck.forward(pred,ytst));
+  for (int epoch=0; epoch<epochs; epoch++)
+  {
+    auto res = prior::linear(20, 20, 1);
+    auto sets = split(res, 8);
+    auto Xtrn = std::get<0>(sets); 
+    auto Xtst = std::get<1>(sets);
+    auto ytrn = std::get<2>(sets);
+    auto ytst = std::get<3>(sets);
+
+    model.train();
+
+    opt.zero_grad();
+    auto pred = model.forward(Xtrn, ytrn, Xtst);
+    auto loss = buck.forward(pred,ytst);
+    loss.backward();
+    opt.step();
+    std::cout << "\rEpoch ["
+              << std::setw(3) << epoch << "/"
+              << std::setw(3) << epochs << "] "
+              << "Loss: " << std::setw(10) << std::fixed << std::setprecision(6) <<loss << std::endl;
+  
+  }
+
+
+
+
+
+
 
 ////////////////////////////////////////////////////////////////////////////////  
   /* torch::Tensor x = torch::arange(0,5); */
