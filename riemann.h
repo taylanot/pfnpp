@@ -70,7 +70,14 @@ namespace dist
       nn::CrossEntropyLoss crs;
 
       auto res = crs(logits_, target);
+      PRINT(logits)
       return res;
+    }
+
+    torch::Tensor mean(const torch::Tensor& logits)
+    {
+      auto bucket_means = bins_.slice(0, 0, -1) + _bucket_widths() / 2.0;
+      return torch::matmul(torch::softmax(logits, -1), bucket_means);
     }
 
     bool ignore_;

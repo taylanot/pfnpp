@@ -30,6 +30,8 @@ int main(int argc, char** argv)
   cli.Register<size_t>("seed", 25);              
   cli.Register<double>("lr", 0.001);           
   cli.Register<size_t>("bins", 100);           
+  cli.Register<size_t>("nsamp", 100);           
+  cli.Register<size_t>("nset", 10);           
   cli.Register<std::string>("mode", "predict");           
   cli.Register<std::string>("path", "./");           
 
@@ -45,6 +47,8 @@ int main(int argc, char** argv)
   auto lr = cli.Get<double>("lr");
   auto seed = cli.Get<size_t>("seed");
   auto bins = cli.Get<size_t>("bins");
+  auto nsamp = cli.Get<size_t>("nsamp");
+  auto nset = cli.Get<size_t>("nset");
 
   // -------------------------
   // Print all registered flags
@@ -54,11 +58,17 @@ int main(int argc, char** argv)
   torch::manual_seed(seed);
 
 ////////////////////////////////////////////////////////////////////////////////
+/// There is something going wrong...
+/// - Suspected places are
+/// 1. Riemann.mean
+/// 2. SimplePFN.forward (does me permuting the dimensions do anything?)
+/// 3. I sample x differently and also do not normalize before embedding...
+////////////////////////////////////////////////////////////////////////////////
 
   // Ahh limited memory... these big models sad sad sad 
   torch::Tensor borders;
   {
-    auto res = prior::linear(10000, 20, 1);
+    auto res = prior::linear(100000, nsamp, 1);
     borders = dist::bin_borders(bins, c10::nullopt, std::get<1>(res));
   }
 
@@ -69,10 +79,10 @@ int main(int argc, char** argv)
   /* auto borders = dist::bin_borders(bins, c10::nullopt, std::get<1>(res)); */
   dist::Riemann buck(borders,true);
 
-  for (int epoch=0; epoch<epochs; epoch++)
+  for (int epoch=0; epoch<=epochs; epoch++)
   {
-    auto res = prior::linear(100, 20, 1);
-    auto sets = split(res, 10);
+    auto res = prior::linear(nset, nsamp, 1);
+    auto sets = split(res,torch::randint(0,nsamp-1,1).item<int>());
     auto Xtrn = std::get<0>(sets); 
     auto Xtst = std::get<1>(sets);
     auto ytrn = std::get<2>(sets);
@@ -85,18 +95,25 @@ int main(int argc, char** argv)
     auto loss = buck.forward(pred,ytst);
     loss.backward();
     opt.step();
+    model.eval();
     std::cout << "\rEpoch ["
               << std::setw(3) << epoch << "/"
               << std::setw(3) << epochs << "] "
-              << "Loss: " << std::setw(10) << std::fixed << float(std::setprecision(6)) <<loss << std::endl;
-  
+              << "Training Loss: " << std::setw(10) 
+              << std::fixed << std::setprecision(6) << loss.item<float>() 
+              << std::flush;
   }
 
 
+  /* model.eval(); */
+  /* auto res = prior::linear(1, nsamp, 1); */
+  /* auto sets = split(res,10); */
+  /* auto Xtrn = std::get<0>(sets); */ 
+  /* auto Xtst = std::get<1>(sets); */
+  /* auto ytrn = std::get<2>(sets); */
+  /* auto ytst = std::get<3>(sets); */
 
-
-
-
+  /* PRINT(buck.mean(model.forward(Xtrn,ytrn,Xtst))); */
 
 ////////////////////////////////////////////////////////////////////////////////  
   /* torch::Tensor x = torch::arange(0,5); */

@@ -13,6 +13,7 @@
 #include <stdexcept>
 #include <type_traits>
 #include <tuple>
+#include <fstream>
 
 //------------------------------------------------------------
 // select_divece: Should we use CUDA or CPU?
@@ -402,3 +403,9 @@ std::tuple<torch::Tensor,torch::Tensor,
 }
 
 
+void write(const torch::Tensor& t, const std::string& path)
+{
+  std::ofstream file(path);
+  file << t << std::endl;
+  file.close();
+}
