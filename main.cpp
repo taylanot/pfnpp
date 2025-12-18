@@ -1,3 +1,7 @@
+#ifndef PRINT_  
+#define PRINT(x) std::cout << #x << " =\n" << x << std::endl;
+#endif
+
 // Macro to print variable name and value
 #include <torch/torch.h>
 #include <limits>
@@ -49,6 +53,8 @@ int main(int argc, char** argv)
 
   torch::manual_seed(seed);
 
+////////////////////////////////////////////////////////////////////////////////
+
   // Ahh limited memory... these big models sad sad sad 
   torch::Tensor borders;
   {
@@ -65,8 +71,8 @@ int main(int argc, char** argv)
 
   for (int epoch=0; epoch<epochs; epoch++)
   {
-    auto res = prior::linear(20, 20, 1);
-    auto sets = split(res, 8);
+    auto res = prior::linear(100, 20, 1);
+    auto sets = split(res, 10);
     auto Xtrn = std::get<0>(sets); 
     auto Xtst = std::get<1>(sets);
     auto ytrn = std::get<2>(sets);
@@ -82,7 +88,7 @@ int main(int argc, char** argv)
     std::cout << "\rEpoch ["
               << std::setw(3) << epoch << "/"
               << std::setw(3) << epochs << "] "
-              << "Loss: " << std::setw(10) << std::fixed << std::setprecision(6) <<loss << std::endl;
+              << "Loss: " << std::setw(10) << std::fixed << float(std::setprecision(6)) <<loss << std::endl;
   
   }
 

@@ -5,10 +5,6 @@
   *
 */
 
-#ifndef PRINT_  
-#define PRINT(x) std::cout << #x << " =\n" << x << std::endl;
-#endif
-
 namespace model
 {
   

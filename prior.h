@@ -7,10 +7,6 @@
 #pragma once
 #include <tuple>
 
-#ifndef PRINT_  
-#define PRINT(x) std::cout << #x << " =\n" << x << std::endl;
-#endif
-
 namespace prior
 {
   using namespace torch;

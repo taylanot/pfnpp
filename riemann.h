@@ -5,10 +5,6 @@
   *
 */
 
-#ifndef PRINT_  
-#define PRINT(x) std::cout << #x << " =\n" << x << std::endl;
-#endif
-
 namespace dist 
 {
   using namespace torch;
@@ -34,11 +30,13 @@ namespace dist
     };
 
     // Find which bin the outputs fall
-    Tensor _map( Tensor y ) const
+    Tensor _map( const Tensor& y ) const
     {
       auto res = searchsorted(bins_,y)-1;
-      res.index_put_({y == bins_[0]}, 0);
-      res.index_put_({y == bins_[-1]}, _nbins() - 1);
+      // these are for the boundery values and the more extremee values observed
+      res.index_put_({y == bins_.index({0})}, 0);
+      res.index_put_({y == bins_.index({-1})}, _nbins() - 1);
+      res = torch::clamp(res, 0, _nbins() - 1);  // clamp to valid bin range
       return res;
     }
 
@@ -56,12 +54,12 @@ namespace dist
     // Get the number of bins
     int _nbins( ) const 
     {
-      return bins_.numel() - 1;
+      return bins_.numel() - 2;
     };
 
     Tensor forward(const Tensor& logits, const Tensor& y)
     {
-      auto y_ = y.clone();
+      auto y_ = y.clone().contiguous();
 
       Tensor ignore_mask = _ignore(y_);
 
@@ -70,7 +68,9 @@ namespace dist
       Tensor target = _map(y_).view(-1);
 
       nn::CrossEntropyLoss crs;
-      return crs(logits_, target);
+
+      auto res = crs(logits_, target);
+      return res;
     }
 
     bool ignore_;
