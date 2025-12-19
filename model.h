@@ -7,49 +7,49 @@
 
 namespace model
 {
-  
-
-  struct SimplePFN : torch::nn::TransformerImpl
+  template<class DTYPE=double>
+  struct SimplePFN : torch::nn::Module
   {
-
-    torch::nn::Linear embedx{nullptr}, embedy{nullptr};
-
     int dmodel_, nhead_, nencoder_, nhid_, infeat_, nbin_;
 
-    SimplePFN( int dmodel, int nhead, int nencoder, int nhid, int infeat=1,
-               int nbin = 100 )
+    torch::nn::TransformerEncoder encoder{nullptr};
+    torch::nn::LayerNorm ln_between{nullptr};
+    torch::nn::Linear decoder{nullptr}, embedx{nullptr}, embedy{nullptr};
 
-    : torch::nn::TransformerImpl( torch::nn::TransformerOptions(dmodel, nhead)
-                          .num_encoder_layers(nencoder)
-                          .dim_feedforward(nhid)
-                          .dropout(0.) )
-    , dmodel_(dmodel)
-    , nhead_(nhead)
-    , nencoder_(nencoder)
-    , nhid_(nhid)
-    , infeat_(infeat)
-    , nbin_(nbin)
-
+       SimplePFN( int dmodel=256,
+                  int nhead=4,
+                  int nencoder=4,
+                  int nhid=512,
+                  int infeat=1,
+                  int nbin = 100 ) :  dmodel_(dmodel),
+                                      nhead_(nhead),
+                                      nencoder_(nencoder),
+                                      nhid_(nhid),
+                                      infeat_(infeat),
+                                      nbin_(nbin)
+          
     {
-      embedx = torch::nn::Linear(infeat,dmodel);
-      embedy = torch::nn::Linear(1,dmodel);
-      decoder = register_module("pfndec", torch::nn::Linear(dmodel, nbin));
-    }
+      // Encoder layer
+      auto encoder_layer = torch::nn::TransformerEncoderLayer(
+          torch::nn::TransformerEncoderLayerOptions(dmodel, nhead)
+              .dim_feedforward(nhid)
+              .dropout(0.));
 
-    torch::Tensor forward( const torch::Tensor& Xtrn,
-                           const torch::Tensor& ytrn,
-                           const torch::Tensor& Xtst )
-    { 
-      using namespace torch::indexing;
-      auto train = embedx(Xtrn) + embedy(ytrn);
-      auto test = embedx(Xtst);
+      // Transformer encoder
+      encoder = register_module("encoder", torch::nn::TransformerEncoder(
+          torch::nn::TransformerEncoderOptions(encoder_layer, nencoder)
+      ));
 
-      auto src = torch::cat({train,test},1);
-      // I am doing this becase there is not batch first option here...
-      src = src.permute({1, 0, 2});
-      auto mask = att_mask(Xtrn.size(1)+Xtst.size(1), Xtst.size(1));
-      return decoder.forward(encoder.forward(src, mask)).
-        index({Slice(Xtrn.size(1), None), Slice(), Slice()});
+      // LayerNorm between encoder and decoder
+      /* ln_between = register_module("ln_between", torch::nn::LayerNorm(dmodel)); */
+      ln_between = register_module("ln_between", torch::nn::LayerNorm(
+        torch::nn::LayerNormOptions({dmodel})));
+
+      // Decoder
+      decoder = register_module("decoder", torch::nn::Linear(dmodel,nbin));
+      embedx = register_module("ex",torch::nn::Linear(infeat,dmodel));
+      embedy = register_module("ey",torch::nn::Linear(1,dmodel));
+
     }
 
     // This is helper for creating the attention mask
@@ -66,15 +66,20 @@ namespace model
       return mask.masked_fill(mask==1,0.);
     }
 
-    int nparameters()
-    {
-      int total = 0;
-      for (const auto& p : this->parameters())
-      {
-        total += p.numel();
-      }
-      return total;
-    }
+    torch::Tensor forward( const torch::Tensor& Xtrn,
+                           const torch::Tensor& ytrn,
+                           const torch::Tensor& Xtst )
+    { 
+      using namespace torch::indexing;
+      auto train = embedx(Xtrn) + embedy(ytrn);
+      auto test = embedx(Xtst);
 
+      auto src = torch::cat({train,test},1);
+      // I am doing this becase there is not batch first option here...
+      src = src.permute({1, 0, 2});
+      auto mask = att_mask(Xtrn.size(1)+Xtst.size(1), Xtst.size(1));
+      return decoder(encoder(src, mask)).
+        index({Slice(Xtrn.size(1), None), Slice(), Slice()});
+    }
   };
 }

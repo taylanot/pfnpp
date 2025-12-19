@@ -70,7 +70,6 @@ namespace dist
       nn::CrossEntropyLoss crs;
 
       auto res = crs(logits_, target);
-      PRINT(logits)
       return res;
     }
 

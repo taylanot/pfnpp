@@ -31,7 +31,7 @@ int main(int argc, char** argv)
   cli.Register<double>("lr", 0.001);           
   cli.Register<size_t>("bins", 100);           
   cli.Register<size_t>("nsamp", 100);           
-  cli.Register<size_t>("nset", 10);           
+  cli.Register<size_t>("nset", 20);           
   cli.Register<std::string>("mode", "predict");           
   cli.Register<std::string>("path", "./");           
 
@@ -60,23 +60,25 @@ int main(int argc, char** argv)
 ////////////////////////////////////////////////////////////////////////////////
 /// There is something going wrong...
 /// - Suspected places are
-/// 1. Riemann.mean
-/// 2. SimplePFN.forward (does me permuting the dimensions do anything?)
-/// 3. I sample x differently and also do not normalize before embedding...
+/// 1. Riemann.mean -> Because of the constant result I am getting
+/// 2. SimplePFN.forward (does me permuting the dimensions do anything?) -> Need to check
+/// 3. I sample x differently and also do not normalize before embedding...->No
+/// 4. Can also be the optimizer...->No
+/// 5. Feeding noise with the test -> Potentially not
 ////////////////////////////////////////////////////////////////////////////////
 
-  // Ahh limited memory... these big models sad sad sad 
+  /* // Ahh limited memory... these big models sad sad sad */ 
   torch::Tensor borders;
   {
     auto res = prior::linear(100000, nsamp, 1);
     borders = dist::bin_borders(bins, c10::nullopt, std::get<1>(res));
   }
+  model::SimplePFN model(256,4,4,512,1,100);
+  PRINT(nparams(model));
 
-  model::SimplePFN model(512,8,6,1024,1,bins);
-  PRINT(model.nparameters());
+
+
   torch::optim::AdamW opt(model.parameters(),torch::optim::AdamWOptions(lr));
-
-  /* auto borders = dist::bin_borders(bins, c10::nullopt, std::get<1>(res)); */
   dist::Riemann buck(borders,true);
 
   for (int epoch=0; epoch<=epochs; epoch++)

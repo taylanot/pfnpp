@@ -409,3 +409,14 @@ void write(const torch::Tensor& t, const std::string& path)
   file << t << std::endl;
   file.close();
 }
+
+template<class MODEL>
+int nparams(const MODEL& model)
+{
+  int total = 0;
+  for (const auto& p : model.parameters())
+    total += p.numel();
+  return total;
+}
+
+
