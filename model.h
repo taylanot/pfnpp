@@ -50,6 +50,7 @@ namespace model
       embedx = register_module("ex",torch::nn::Linear(infeat,dmodel));
       embedy = register_module("ey",torch::nn::Linear(1,dmodel));
 
+      std::cout << "SimplePFN parameter count: " << nparams(*this) << std::endl;
     }
 
     // This is helper for creating the attention mask

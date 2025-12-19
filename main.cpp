@@ -11,6 +11,7 @@
 #include "riemann.h"
 #include "prior.h"
 #include "model.h"
+#include "train.h"
 
 #ifndef PRINT_  
 #define PRINT(x) std::cout << #x << " =\n" << x << std::endl;
@@ -26,11 +27,12 @@ int main(int argc, char** argv)
   // -------------------------
   // Register flags
   // -------------------------
-  cli.Register<int>("epochs", 10);                
+  cli.Register<size_t>("epochs", 10);                
   cli.Register<size_t>("seed", 25);              
   cli.Register<double>("lr", 0.001);           
-  cli.Register<size_t>("bins", 100);           
+  cli.Register<size_t>("nbin", 100);           
   cli.Register<size_t>("nsamp", 100);           
+  cli.Register<size_t>("nfeat", 1);           
   cli.Register<size_t>("nset", 20);           
   cli.Register<std::string>("mode", "predict");           
   cli.Register<std::string>("path", "./");           
@@ -43,12 +45,12 @@ int main(int argc, char** argv)
   // -------------------------
   // Access flag values
   // -------------------------
-  auto epochs = cli.Get<int>("epochs");
+  /* auto epochs = cli.Get<int>("epochs"); */
   auto lr = cli.Get<double>("lr");
   auto seed = cli.Get<size_t>("seed");
-  auto bins = cli.Get<size_t>("bins");
-  auto nsamp = cli.Get<size_t>("nsamp");
-  auto nset = cli.Get<size_t>("nset");
+  /* auto bins = cli.Get<size_t>("bins"); */
+  /* auto nsamp = cli.Get<size_t>("nsamp"); */
+  /* auto nset = cli.Get<size_t>("nset"); */
 
   // -------------------------
   // Print all registered flags
@@ -58,6 +60,10 @@ int main(int argc, char** argv)
   torch::manual_seed(seed);
 
 
+  model::SimplePFN model(256,4,4,512,1,cli.Get<size_t>("nbin"));
+  torch::optim::AdamW opt(model.parameters(),torch::optim::AdamWOptions(lr));
+  auto linprior = prior::LinearTasks(0, 1, 1);
+  train::RiemannLoss(linprior, model, opt, cli);
 
 
 /* //////////////////////////////////////////////////////////////////////////////// */
@@ -67,43 +73,44 @@ int main(int argc, char** argv)
 /*   dist::Riemann buck(borders,true); */
 /*   PRINT(buck.forward(torch::zeros({1,1,2}),torch::ones({1,1,1}))) // == 0.693147 */
 /* //////////////////////////////////////////////////////////////////////////////// */
+
 ////////////////////////////////////////////////////////////////////////////////
-  // Ahh limited memory... these big models sad sad sad 
-  torch::Tensor borders;
-  {
-    auto res = prior::linear(100000, nsamp, 1);
-    borders = dist::bin_borders(bins, c10::nullopt, std::get<1>(res));
-  }
+  // This is my way of getting the borders I guess
+  /* torch::Tensor borders; */
+  /* { */
+  /*   auto res = prior::linear(100000, nsamp, 1); */
+  /*   borders = dist::bin_borders(bins, c10::nullopt, std::get<1>(res)); */
+  /* } */
 
 
-  model::SimplePFN model(256,4,4,512,1,bins);
-  PRINT(nparams(model));
+  /* model::SimplePFN model(256,4,4,512,1,bins); */
+  /* PRINT(nparams(model)); */
 
-  torch::optim::AdamW opt(model.parameters(),torch::optim::AdamWOptions(lr));
-  dist::Riemann buck(borders,true);
+  /* torch::optim::AdamW opt(model.parameters(),torch::optim::AdamWOptions(lr)); */
+  /* dist::Riemann buck(borders,true); */
 
-  for (int epoch=0; epoch<=epochs; epoch++)
-  {
-    auto res = prior::linear(nset, nsamp, 1);
-    auto sets = split(res,torch::randint(0,nsamp-1,1).item<int>());
-    auto Xtrn = std::get<0>(sets); 
-    auto Xtst = std::get<1>(sets);
-    auto ytrn = std::get<2>(sets);
-    auto ytst = std::get<3>(sets);
-    model.train();
-    opt.zero_grad();
-    auto pred = model.forward(Xtrn, ytrn, Xtst);
-    auto loss = buck.forward(pred,ytst);
-    loss.backward();
-    opt.step();
-    model.eval();
-    std::cout << "\rEpoch ["
-              << std::setw(3) << epoch << "/"
-              << std::setw(3) << epochs << "] "
-              << "Training Loss: " << std::setw(10) 
-              << std::fixed << std::setprecision(6) << loss.item<float>() 
-              << std::flush;
-  }
+  /* for (int epoch=0; epoch<=epochs; epoch++) */
+  /* { */
+  /*   auto res = prior::linear(nset, nsamp, 1); */
+  /*   auto sets = split(res,torch::randint(0,nsamp-1,1).item<int>()); */
+  /*   auto Xtrn = std::get<0>(sets); */ 
+  /*   auto Xtst = std::get<1>(sets); */
+  /*   auto ytrn = std::get<2>(sets); */
+  /*   auto ytst = std::get<3>(sets); */
+  /*   model.train(); */
+  /*   opt.zero_grad(); */
+  /*   auto pred = model.forward(Xtrn, ytrn, Xtst); */
+  /*   auto loss = buck.forward(pred,ytst); */
+  /*   loss.backward(); */
+  /*   opt.step(); */
+  /*   model.eval(); */
+  /*   std::cout << "\rEpoch [" */
+  /*             << std::setw(3) << epoch << "/" */
+  /*             << std::setw(3) << epochs << "] " */
+  /*             << "Training Loss: " << std::setw(10) */ 
+  /*             << std::fixed << std::setprecision(6) << loss.item<float>() */ 
+  /*             << std::flush; */
+  /* } */
 
 ////////////////////////////////////////////////////////////////////////////////
 
