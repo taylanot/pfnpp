@@ -58,13 +58,7 @@ int main(int argc, char** argv)
   torch::manual_seed(seed);
 
 
-////////////////////////////////////////////////////////////////////////////////
-/// There is something going wrong...
-/// - Suspected places are
-/// 3. I sample x differently and also do not normalize before embedding...->No
-/// 4. Can also be the optimizer...->No
-/// 5. Feeding noise with the test -> Potentially not
-////////////////////////////////////////////////////////////////////////////////
+
 
 /* //////////////////////////////////////////////////////////////////////////////// */
 /* // TEST IDEA->Reimann Distribution */
@@ -73,6 +67,7 @@ int main(int argc, char** argv)
 /*   dist::Riemann buck(borders,true); */
 /*   PRINT(buck.forward(torch::zeros({1,1,2}),torch::ones({1,1,1}))) // == 0.693147 */
 /* //////////////////////////////////////////////////////////////////////////////// */
+////////////////////////////////////////////////////////////////////////////////
   // Ahh limited memory... these big models sad sad sad 
   torch::Tensor borders;
   {
@@ -81,9 +76,8 @@ int main(int argc, char** argv)
   }
 
 
-  model::SimplePFN model(256,4,4,512,1,2);
+  model::SimplePFN model(256,4,4,512,1,bins);
   PRINT(nparams(model));
-
 
   torch::optim::AdamW opt(model.parameters(),torch::optim::AdamWOptions(lr));
   dist::Riemann buck(borders,true);
@@ -96,9 +90,7 @@ int main(int argc, char** argv)
     auto Xtst = std::get<1>(sets);
     auto ytrn = std::get<2>(sets);
     auto ytst = std::get<3>(sets);
-
     model.train();
-
     opt.zero_grad();
     auto pred = model.forward(Xtrn, ytrn, Xtst);
     auto loss = buck.forward(pred,ytst);
@@ -113,6 +105,7 @@ int main(int argc, char** argv)
               << std::flush;
   }
 
+////////////////////////////////////////////////////////////////////////////////
 
   /* model.eval(); */
   /* auto res = prior::linear(1, nsamp, 1); */

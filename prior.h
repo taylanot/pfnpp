@@ -22,7 +22,6 @@ namespace prior
   std::tuple<Tensor, Tensor> linear( int nset, int nsamp, int nfeat,
                                      O a = 0.0, O b = 1., O c = 1.)
   {
-    // samplings are problematic without namespaces
     Tensor x, w, xs, ys, e;
     w =  torch::normal(0, c, {nset,nfeat+1});
     xs = torch::normal(0, b, {nset,nsamp,nfeat});

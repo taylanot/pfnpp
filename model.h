@@ -73,13 +73,13 @@ namespace model
       using namespace torch::indexing;
       auto train = embedx(Xtrn) + embedy(ytrn);
       auto test = embedx(Xtst);
-
-      auto src = torch::cat({train,test},1);
+      
+      auto src = torch::cat({train,test},0);
       // I am doing this becase there is not batch first option here...
       /* src = src.permute({1, 0, 2}); */
-      auto mask = att_mask(Xtrn.size(1)+Xtst.size(1), Xtst.size(1));
+      auto mask = att_mask(Xtrn.size(0)+Xtst.size(0), Xtst.size(0));
       return decoder(encoder(src, mask)).
-        index({Slice(Xtrn.size(1), None), Slice(), Slice()});
+        index({Slice(Xtrn.size(0), None), Slice(), Slice()});
     }
   };
 }
