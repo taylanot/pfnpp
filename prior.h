@@ -20,15 +20,16 @@ namespace prior
   // libtorch does not have multivariate option so anything you see is isotropic
   template<class O=double>
   std::tuple<Tensor, Tensor> linear( int nset, int nsamp, int nfeat,
-                                     O a = 0.0, O b = 1./12., O c = 1.)
+                                     O a = 0.0, O b = 1., O c = 1.)
   {
     // samplings are problematic without namespaces
     Tensor x, w, xs, ys, e;
+    w =  torch::normal(0, c, {nset,nfeat+1});
     xs = torch::normal(0, b, {nset,nsamp,nfeat});
     x = torch::cat({xs,torch::ones({nset,nsamp,1})}, -1); 
-    w =  torch::normal(0, c, {nset,nfeat+1});
     ys = torch::bmm(x,w.unsqueeze(2)).squeeze(-1);
     e  = torch::normal(0, a, ys.sizes());
-    return std::make_tuple(xs, (ys+e).unsqueeze(-1));
+    return std::make_tuple( xs.transpose(0,1),
+                            (ys+e).transpose(0,1).unsqueeze(-1) );
   }
 }

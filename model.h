@@ -76,7 +76,7 @@ namespace model
 
       auto src = torch::cat({train,test},1);
       // I am doing this becase there is not batch first option here...
-      src = src.permute({1, 0, 2});
+      /* src = src.permute({1, 0, 2}); */
       auto mask = att_mask(Xtrn.size(1)+Xtst.size(1), Xtst.size(1));
       return decoder(encoder(src, mask)).
         index({Slice(Xtrn.size(1), None), Slice(), Slice()});

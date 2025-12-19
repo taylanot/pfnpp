@@ -388,7 +388,7 @@ std::tuple<torch::Tensor,torch::Tensor,
             split(const std::tuple<torch::Tensor,torch::Tensor>& set,
                     const int Ntst)
 {
-  int N = std::get<0>(set).size(1);
+  int N = std::get<0>(set).size(0);
   TORCH_CHECK( std::get<0>(set).size(0) == std::get<1>(set).size(0) &&
                std::get<0>(set).size(1) == std::get<1>(set).size(1),
       "X-y pair does not have matching dimensions" );
@@ -396,10 +396,10 @@ std::tuple<torch::Tensor,torch::Tensor,
 
   auto idx = get_idx(N,Ntst);
   auto idx_ = rest(idx,N);
-  return std::make_tuple(std::get<0>(set).index_select(1,idx_),
-                         std::get<0>(set).index_select(1,idx),
-                         std::get<1>(set).index_select(1,idx_),
-                         std::get<1>(set).index_select(1,idx));
+  return std::make_tuple(std::get<0>(set).index_select(0,idx_),
+                         std::get<0>(set).index_select(0,idx),
+                         std::get<1>(set).index_select(0,idx_),
+                         std::get<1>(set).index_select(0,idx));
 }
 
 

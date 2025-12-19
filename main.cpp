@@ -57,25 +57,32 @@ int main(int argc, char** argv)
 
   torch::manual_seed(seed);
 
+
 ////////////////////////////////////////////////////////////////////////////////
 /// There is something going wrong...
 /// - Suspected places are
-/// 1. Riemann.mean -> Because of the constant result I am getting
-/// 2. SimplePFN.forward (does me permuting the dimensions do anything?) -> Need to check
 /// 3. I sample x differently and also do not normalize before embedding...->No
 /// 4. Can also be the optimizer...->No
 /// 5. Feeding noise with the test -> Potentially not
 ////////////////////////////////////////////////////////////////////////////////
 
-  /* // Ahh limited memory... these big models sad sad sad */ 
+/* //////////////////////////////////////////////////////////////////////////////// */
+/* // TEST IDEA->Reimann Distribution */
+/* //////////////////////////////////////////////////////////////////////////////// */
+/*   auto borders = torch::arange(1,4).to(torch::kFloat); */
+/*   dist::Riemann buck(borders,true); */
+/*   PRINT(buck.forward(torch::zeros({1,1,2}),torch::ones({1,1,1}))) // == 0.693147 */
+/* //////////////////////////////////////////////////////////////////////////////// */
+  // Ahh limited memory... these big models sad sad sad 
   torch::Tensor borders;
   {
     auto res = prior::linear(100000, nsamp, 1);
     borders = dist::bin_borders(bins, c10::nullopt, std::get<1>(res));
   }
-  model::SimplePFN model(256,4,4,512,1,100);
-  PRINT(nparams(model));
 
+
+  model::SimplePFN model(256,4,4,512,1,2);
+  PRINT(nparams(model));
 
 
   torch::optim::AdamW opt(model.parameters(),torch::optim::AdamWOptions(lr));
