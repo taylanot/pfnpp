@@ -13,6 +13,8 @@
 #include "model.h"
 #include "train.h"
 
+const torch::Device DEVICE = select_device();
+
 #ifndef PRINT_  
 #define PRINT(x) std::cout << #x << " =\n" << x << std::endl;
 #endif
@@ -61,9 +63,10 @@ int main(int argc, char** argv)
 
 
   model::SimplePFN model(256,4,4,512,1,cli.Get<size_t>("nbin"));
+  model.to(DEVICE);
   torch::optim::AdamW opt(model.parameters(),torch::optim::AdamWOptions(lr));
   auto linprior = prior::LinearTasks(0, 1, 1);
-  train::RiemannLoss(linprior, model, opt, cli);
+  train::RiemannLoss(linprior, model, opt, cli,DEVICE);
 
 
 /* //////////////////////////////////////////////////////////////////////////////// */

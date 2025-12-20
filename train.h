@@ -11,7 +11,8 @@
 namespace train 
 {
   template<class PRIOR, class MODEL, class OPT>
-  void RiemannLoss(const PRIOR& prior, MODEL& model, OPT& opt, const CLIStore& conf)
+  void RiemannLoss(const PRIOR& prior, MODEL& model, OPT& opt,
+                   const CLIStore& conf, const torch::Device device )
   {
     auto epochs = conf.Get<size_t>("epochs");
     torch::Tensor borders;
@@ -22,6 +23,7 @@ namespace train
     }
 
     dist::Riemann buck(borders,true);
+    buck.to(device);
 
     for (size_t epoch=0; epoch<=epochs; epoch++)
     {
@@ -37,8 +39,9 @@ namespace train
       auto ytst = std::get<3>(sets);
       model.train();
       opt.zero_grad();
-      auto pred = model.forward(Xtrn, ytrn, Xtst);
-      auto loss = buck.forward(pred,ytst);
+      auto pred = model.forward(Xtrn.to(device),
+                                ytrn.to(device), Xtst.to(device));
+      auto loss = buck.forward(pred,ytst.to(device));
       loss.backward();
       opt.step();
       // You can add a validation part as well, but for now it is extra work...

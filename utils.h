@@ -34,8 +34,6 @@ torch::Device select_device()
   }
 }
 
-const torch::Device DEVICE = select_device();
-
 //-----------------------------------------------------------------------------
 // CLIStore : This is a command line interface storing singleton.
 // It has some nice functionality that might be of use while desining apps

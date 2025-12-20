@@ -19,7 +19,7 @@ namespace dist
       bins_ = register_buffer("bins_", std::get<0>(sort(bins)).contiguous());
       auto widths = _bucket_widths( );
       Tensor width = widths.sum();
-      this -> to(DEVICE);
+      /* this -> to(DEVICE); */
     };
 
     // Get all bucket widths
