@@ -5,10 +5,11 @@
   *
 */
 
+/* #include "riemann.h" */
+
 namespace model
 {
-  template<class DTYPE=double>
-  struct SimplePFN : torch::nn::Module
+  struct SimplePFNImpl : torch::nn::Module
   {
     int dmodel_, nhead_, nencoder_, nhid_, infeat_, nbin_;
 
@@ -16,17 +17,17 @@ namespace model
     torch::nn::LayerNorm ln_between{nullptr};
     torch::nn::Linear decoder{nullptr}, embedx{nullptr}, embedy{nullptr};
 
-       SimplePFN( int dmodel=256,
-                  int nhead=4,
-                  int nencoder=4,
-                  int nhid=512,
-                  int infeat=1,
-                  int nbin = 100 ) :  dmodel_(dmodel),
-                                      nhead_(nhead),
-                                      nencoder_(nencoder),
-                                      nhid_(nhid),
-                                      infeat_(infeat),
-                                      nbin_(nbin)
+       SimplePFNImpl( int dmodel=256,
+                      int nhead=4,
+                      int nencoder=4,
+                      int nhid=512,
+                      int infeat=1,
+                      int nbin = 100 ) :  dmodel_(dmodel),
+                                          nhead_(nhead),
+                                          nencoder_(nencoder),
+                                          nhid_(nhid),
+                                          infeat_(infeat),
+                                          nbin_(nbin)
           
     {
       // Encoder layer
@@ -79,8 +80,11 @@ namespace model
       // I am doing this becase there is not batch first option here...
       /* src = src.permute({1, 0, 2}); */
       auto mask = att_mask(Xtrn.size(0)+Xtst.size(0), Xtst.size(0));
+      mask = mask.to(DEVICE);
       return decoder(encoder(src, mask)).
         index({Slice(Xtrn.size(0), None), Slice(), Slice()});
     }
   };
+
+  TORCH_MODULE(SimplePFN);
 }

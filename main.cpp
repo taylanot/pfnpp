@@ -8,12 +8,12 @@
 #include <iostream>
 #include <typeinfo>
 #include "utils.h"
+/* const torch::Device DEVICE = select_device(); */
 #include "riemann.h"
 #include "prior.h"
 #include "model.h"
 #include "train.h"
 
-const torch::Device DEVICE = select_device();
 
 #ifndef PRINT_  
 #define PRINT(x) std::cout << #x << " =\n" << x << std::endl;
@@ -36,7 +36,7 @@ int main(int argc, char** argv)
   cli.Register<size_t>("nsamp", 100);           
   cli.Register<size_t>("nfeat", 1);           
   cli.Register<size_t>("nset", 20);           
-  cli.Register<std::string>("mode", "predict");           
+  cli.Register<std::string>("mode", "train");           
   cli.Register<std::string>("path", "./");           
 
   // -------------------------
@@ -61,13 +61,23 @@ int main(int argc, char** argv)
 
   torch::manual_seed(seed);
 
-
-  model::SimplePFN model(256,4,4,512,1,cli.Get<size_t>("nbin"));
-  model.to(DEVICE);
-  torch::optim::AdamW opt(model.parameters(),torch::optim::AdamWOptions(lr));
-  auto linprior = prior::LinearTasks(0, 1, 1);
-  train::RiemannLoss(linprior, model, opt, cli,DEVICE);
-
+  if (cli.Get<std::string>("mode") == "train")
+  {
+    model::SimplePFN pfn(256,4,4,512,1,cli.Get<size_t>("nbin"));
+    torch::optim::AdamW opt(pfn->parameters(),torch::optim::AdamWOptions(lr));
+    auto linprior = prior::LinearTasks(0, 1, 1);
+    train::withRiemannLoss(linprior, pfn, opt, cli,DEVICE);
+    torch::save(pfn,"pfn.pt");
+  }
+  else if (cli.Get<std::string>("mode") == "predict")
+  {
+    model::SimplePFN pfn;
+    torch::load(pfn, "pfn.pt");
+    torch::optim::AdamW opt(pfn->parameters(),torch::optim::AdamWOptions(lr));
+    auto linprior = prior::LinearTasks(0, 1, 1);
+    train::withRiemannLoss(linprior, pfn, opt, cli,DEVICE);
+    torch::save(pfn,"pfn.pt");
+  }
 
 /* //////////////////////////////////////////////////////////////////////////////// */
 /* // TEST IDEA->Reimann Distribution */

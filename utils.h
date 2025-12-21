@@ -34,6 +34,8 @@ torch::Device select_device()
   }
 }
 
+const torch::Device DEVICE = select_device();
+
 //-----------------------------------------------------------------------------
 // CLIStore : This is a command line interface storing singleton.
 // It has some nice functionality that might be of use while desining apps
@@ -418,3 +420,31 @@ int nparams(const MODEL& model)
 }
 
 
+
+static std::string format_time_dhms(double seconds)
+{
+  using ll = long long;
+
+  ll total = static_cast<ll>(seconds + 0.5);
+
+  ll days = total / 86400;
+  total %= 86400;
+
+  ll hours = total / 3600;
+  total %= 3600;
+
+  ll minutes = total / 60;
+  ll secs = total % 60;
+
+  std::ostringstream oss;
+  if (days > 0)
+  {
+    oss << days << "d ";
+  }
+
+  oss << std::setw(2) << std::setfill('0') << hours << "h "
+      << std::setw(2) << std::setfill('0') << minutes << "m "
+      << std::setw(2) << std::setfill('0') << secs << "s";
+
+  return oss.str();
+}
