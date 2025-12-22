@@ -13,10 +13,10 @@ namespace train
 {
   template<class PRIOR, class MODEL, class OPT, class DTYPE=float>
   void Simple ( const PRIOR& prior, MODEL& model, OPT& opt,
-                const CLIStore& conf, const torch::Device device )
+                const CLIStore& conf, size_t check = 10 )
   {
 
-    model->to(device);
+    model->to(DEVICE);
 
     auto epochs = conf.Get<size_t>("epochs");
 
@@ -39,8 +39,8 @@ namespace train
       auto ytrn = std::get<2>(sets);
       auto ytst = std::get<3>(sets);
 
-      Xtrn = Xtrn.to(device); ytrn = ytrn.to(device);
-      Xtst = Xtst.to(device); ytst = ytst.to(device);
+      Xtrn = Xtrn.to(DEVICE); ytrn = ytrn.to(DEVICE);
+      Xtst = Xtst.to(DEVICE); ytst = ytst.to(DEVICE);
 
       model->train();
       opt.zero_grad();
@@ -73,6 +73,8 @@ namespace train
                 << "  ETA: "
                 << format_time_dhms(remaining_time)
                 << std::flush;
+    if (epoch % check == 0)
+      save_checkpoint(conf.Get<std::filesystem::path>("path") , model, epoch);
     }
 
     auto t_total_end = std::chrono::high_resolution_clock::now();

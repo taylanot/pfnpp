@@ -14,6 +14,7 @@
 #include <type_traits>
 #include <tuple>
 #include <fstream>
+#include <filesystem>
 
 //------------------------------------------------------------
 // select_divece: Should we use CUDA or CPU?
@@ -45,7 +46,8 @@ class CLIStore
 {
 public:
   // Define the supported value types
-  using FlagValue = std::variant<int, float, double, std::string, bool, size_t>;
+  using FlagValue = std::variant<int, float, double, std::string,
+                                 std::filesystem::path, bool, size_t>;
 
   // Singleton access
   static CLIStore& GetInstance()
@@ -447,4 +449,66 @@ static std::string format_time_dhms(double seconds)
       << std::setw(2) << std::setfill('0') << secs << "s";
 
   return oss.str();
+}
+
+inline std::string checkpoint_filename(int epoch,
+                                       const std::filesystem::path& path )
+{
+  namespace fs = std::filesystem;
+  // Base filename
+  std::string filename = "epoch_" + std::to_string(epoch) + ".pt";
+
+  // If the file exists, add a suffix _1, _2, etc.
+  int counter = 1;
+  while (fs::exists(path))
+  {
+    std::ostringstream ss;
+    ss << "epoch_" << epoch << "_" << counter << ".pt";
+    filename = fs::path(path) / ss.str();
+    ++counter;
+  }
+
+  return filename;
+}
+
+void save_checkpoint( const std::filesystem::path& path,
+                      torch::nn::ModuleHolder<auto> model,
+                      /* torch::optim::Optimizer& optimizer, */
+                      int epoch )
+{
+  const std::string name = checkpoint_filename(epoch,path);
+
+  torch::serialize::OutputArchive archive;
+
+  // Save model parameters
+  model->save(archive);
+
+  // Save optimizer state
+  /* optimizer.save(archive); */
+
+  // Save epoch metadata
+  archive.write("epoch", torch::tensor(epoch));
+
+  archive.save_to(name);
+}
+
+void load_checkpoint( const std::filesystem::path& path,
+                      torch::nn::ModuleHolder<auto> model,
+                      /* torch::optim::Optimizer& optimizer, */
+                      size_t epoch )
+{
+  torch::serialize::InputArchive archive;
+  archive.load_from(path);
+
+  // Restore model parameters
+  model->load(archive);
+
+  // Restore optimizer state
+  /* optimizer.load(archive); */
+
+  // Restore epoch metadata
+  torch::Tensor epoch_tensor;
+  archive.read("epoch", epoch_tensor);
+
+  epoch_tensor.item<int64_t>();
 }

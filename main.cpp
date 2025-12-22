@@ -4,6 +4,7 @@
 
 // Macro to print variable name and value
 #include <torch/torch.h>
+#include <filesystem>
 #include <limits>
 #include <iostream>
 #include <typeinfo>
@@ -24,7 +25,8 @@
 // -----------------------------------------------------------
 int main(int argc, char** argv)
 {
-   CLIStore& cli = CLIStore::GetInstance();
+  namespace fs = std::filesystem;
+  CLIStore& cli = CLIStore::GetInstance();
 
   // -------------------------
   // Register flags
@@ -36,7 +38,7 @@ int main(int argc, char** argv)
   cli.Register<size_t>("nsamp", 100);           
   cli.Register<size_t>("nfeat", 1);           
   cli.Register<size_t>("nset", 20);           
-  cli.Register<std::string>("path", "./");           
+  cli.Register<fs::path>("path", "./simple");           
 
   // -------------------------
   // Parse command line
@@ -60,8 +62,8 @@ int main(int argc, char** argv)
 
   model::SimplePFN pfn(linprior, cli.Get<size_t>("nsamp"));
   torch::optim::AdamW opt(pfn->parameters(),torch::optim::AdamWOptions(lr));
-  train::Simple(linprior, pfn, opt, cli,DEVICE);
-  torch::save(pfn,"pfn.pt");
+  train::Simple(linprior, pfn, opt, cli);
+  /* torch::save(pfn,"pfn.pt"); */
 
   /* if (cli.Get<std::string>("mode") == "train") */
   /* { */
