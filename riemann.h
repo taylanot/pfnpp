@@ -9,17 +9,15 @@ namespace dist
 {
   using namespace torch;
 
-  template<class O=double>
-  struct Riemann : nn::Module
+  struct RiemannImpl : nn::Module
   {
-    Riemann ( const Tensor& bins, bool ignore = true ) : 
+    RiemannImpl ( const Tensor& bins, bool ignore = true ) : 
       bins_(bins), ignore_(ignore)
     {
       TORCH_CHECK( bins.dim() == 1, "Expecting a 1D Tensor..." );
       bins_ = register_buffer("bins_", std::get<0>(sort(bins)).contiguous());
       auto widths = _bucket_widths( );
       Tensor width = widths.sum();
-      /* this -> to(DEVICE); */
     };
 
     // Get all bucket widths
@@ -83,6 +81,7 @@ namespace dist
     Tensor bins_;
 
   };
+  TORCH_MODULE(Riemann);
 
 template<class O=double>
 Tensor bin_borders( int num_outputs,

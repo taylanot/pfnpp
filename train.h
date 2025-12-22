@@ -12,23 +12,13 @@
 namespace train 
 {
   template<class PRIOR, class MODEL, class OPT, class DTYPE=float>
-  void withRiemannLoss( const PRIOR& prior, MODEL& model, OPT& opt,
-                        const CLIStore& conf, const torch::Device device )
+  void Simple ( const PRIOR& prior, MODEL& model, OPT& opt,
+                const CLIStore& conf, const torch::Device device )
   {
 
     model->to(device);
 
     auto epochs = conf.Get<size_t>("epochs");
-
-    torch::Tensor borders;
-    {
-      auto res = prior.Sample(100000, conf.Get<size_t>("nsamp"), 1);
-      borders = dist::bin_borders(conf.Get<size_t>("nbin"),
-                                  c10::nullopt, std::get<1>(res));
-    }
-
-    dist::Riemann buck(borders, true);
-    buck.to(device);
 
     auto t_total_start = std::chrono::high_resolution_clock::now();
     double cumulative_epoch_time = 0.0;
@@ -55,9 +45,8 @@ namespace train
       model->train();
       opt.zero_grad();
 
-      auto pred = model->forward( Xtrn,ytrn,Xtst );
+      auto loss = model( Xtrn,ytrn,Xtst,ytst );
 
-      auto loss = buck.forward(pred, ytst);
       loss.backward();
       opt.step();
 

@@ -11,13 +11,17 @@ namespace model
 {
   struct SimplePFNImpl : torch::nn::Module
   {
-    int dmodel_, nhead_, nencoder_, nhid_, infeat_, nbin_;
+    int dmodel_, nhead_, nencoder_, nhid_, infeat_, nbin_, nsamp_;
+    prior::Tasks& pri_;
 
     torch::nn::TransformerEncoder encoder{nullptr};
     torch::nn::LayerNorm ln_between{nullptr};
     torch::nn::Linear decoder{nullptr}, embedx{nullptr}, embedy{nullptr};
+    dist::Riemann loss = nullptr;
 
-       SimplePFNImpl( int dmodel=256,
+       SimplePFNImpl( prior::Tasks& pri,
+                      const int nsamp, 
+                      int dmodel=256,
                       int nhead=4,
                       int nencoder=4,
                       int nhid=512,
@@ -27,7 +31,9 @@ namespace model
                                           nencoder_(nencoder),
                                           nhid_(nhid),
                                           infeat_(infeat),
-                                          nbin_(nbin)
+                                          nbin_(nbin),
+                                          nsamp_(nsamp),
+                                          pri_(pri)
           
     {
       // Encoder layer
@@ -42,7 +48,6 @@ namespace model
       ));
 
       // LayerNorm between encoder and decoder
-      /* ln_between = register_module("ln_between", torch::nn::LayerNorm(dmodel)); */
       ln_between = register_module("ln_between", torch::nn::LayerNorm(
         torch::nn::LayerNormOptions({dmodel})));
 
@@ -50,6 +55,8 @@ namespace model
       decoder = register_module("decoder", torch::nn::Linear(dmodel,nbin));
       embedx = register_module("ex",torch::nn::Linear(infeat,dmodel));
       embedy = register_module("ey",torch::nn::Linear(1,dmodel));
+      loss = register_module("loss", dist::Riemann(
+                                              pri_.Border(nsamp_,infeat,nbin)));
 
       std::cout << "SimplePFN parameter count: " << nparams(*this) << std::endl;
     }
@@ -70,7 +77,8 @@ namespace model
 
     torch::Tensor forward( const torch::Tensor& Xtrn,
                            const torch::Tensor& ytrn,
-                           const torch::Tensor& Xtst )
+                           const torch::Tensor& Xtst,
+                           const c10::optional<torch::Tensor>& ytst )
     { 
       using namespace torch::indexing;
       auto train = embedx(Xtrn) + embedy(ytrn);
@@ -81,10 +89,16 @@ namespace model
       /* src = src.permute({1, 0, 2}); */
       auto mask = att_mask(Xtrn.size(0)+Xtst.size(0), Xtst.size(0));
       mask = mask.to(DEVICE);
-      return decoder(encoder(src, mask)).
-        index({Slice(Xtrn.size(0), None), Slice(), Slice()});
+      if (ytst.has_value())
+        return loss(decoder(encoder(src, mask)).
+          index({Slice(Xtrn.size(0), None), Slice(), Slice()}),ytst.value());
+      else
+        return loss->mean(decoder(encoder(src, mask)).
+          index({Slice(Xtrn.size(0), None), Slice(), Slice()}));
     }
+
   };
 
   TORCH_MODULE(SimplePFN);
+
 }

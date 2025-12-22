@@ -19,6 +19,60 @@ namespace prior
     // Pure virtual method to sample tensors
     virtual std::tuple<Tensor, Tensor>
     Sample(int nset, int nsamp, int nfeat) const = 0;
+
+    Tensor _Bins( int num_outputs,
+                  const c10::optional<torch::Tensor>& full_range,
+                  const c10::optional<torch::Tensor>& ys )
+    {
+      TORCH_CHECK( ys.has_value() != full_range.has_value(),
+        "Either ys or full_range must be passed, but not both." );
+
+      torch::Tensor borders;
+
+      if (ys.has_value())
+      {
+        torch::Tensor y = ys.value().flatten();
+        y = y.masked_select(~torch::isnan(y));
+
+        TORCH_CHECK( y.numel() > num_outputs,
+          "Number of ys must be larger than num_outputs." );
+
+        torch::Tensor quantiles = torch::linspace( 0.0, 1.0, num_outputs + 1);
+
+        borders = torch::quantile(y, quantiles);
+
+        if (full_range.has_value())
+        {
+          TORCH_CHECK( full_range->numel() == 2,
+            "full_range must be a tensor of size 2." );
+
+          borders.index_put_({0}, (*full_range)[0]);
+          borders.index_put_({-1}, (*full_range)[1]);
+        }
+      }
+      else
+      {
+        TORCH_CHECK( full_range->numel() == 2,
+          "full_range must be a tensor of size 2.");
+
+        borders =
+          torch::linspace( full_range.value()[0], full_range.value()[1], 
+                           num_outputs + 1 );
+      }
+
+      borders = std::get<0>(torch::unique_consecutive(borders));
+
+      TORCH_CHECK( borders.numel() - 1 == num_outputs,
+        "len(borders) - 1 must equal num_outputs." );
+
+      return borders;
+    }
+
+    Tensor Border( int nsamp, int nfeat, int nbin )
+    {
+      auto res = this->Sample(100000, nsamp, nfeat);
+      return this-> _Bins(nbin, c10::nullopt, std::get<1>(res));
+    }
   };
 
   // Sample datasets from 
@@ -50,6 +104,8 @@ namespace prior
       return std::make_tuple( xs.transpose(0, 1),
                               (ys + e).transpose(0, 1).unsqueeze(-1));
     }
+
+
 
   private:
     O a_, b_, c_;
