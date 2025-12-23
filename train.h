@@ -13,17 +13,17 @@ namespace train
 {
   template<class PRIOR, class MODEL, class OPT, class DTYPE=float>
   void Simple ( const PRIOR& prior, MODEL& model, OPT& opt,
-                const CLIStore& conf, size_t check = 10 )
+                const CLIStore& conf, int epoch_ = 0, int check = 10 )
   {
 
     model->to(DEVICE);
 
-    auto epochs = conf.Get<size_t>("epochs");
+    auto epochs = conf.Get<int>("epochs");
 
     auto t_total_start = std::chrono::high_resolution_clock::now();
     double cumulative_epoch_time = 0.0;
 
-    for (size_t epoch = 0; epoch <= epochs; epoch++)
+    for ( int epoch=0; epoch <= epochs; epoch++)
     {
       auto t_epoch_start = std::chrono::high_resolution_clock::now();
 
@@ -62,8 +62,8 @@ namespace train
         avg_epoch_time * static_cast<DTYPE>(epochs - epoch);
 
       std::cout << "\rEpoch ["
-                << std::setw(3) << epoch << "/"
-                << std::setw(3) << epochs << "] "
+                << std::setw(3) << epoch+epoch_ << "/"
+                << std::setw(3) << epoch_+epochs << "] "
                 << "Loss: " << std::setw(10)
                 << std::fixed << std::setprecision(6)
                 << loss.template item<DTYPE>()
@@ -73,8 +73,9 @@ namespace train
                 << "  ETA: "
                 << format_time_dhms(remaining_time)
                 << std::flush;
-    if (epoch % check == 0)
-      save_checkpoint(conf.Get<std::filesystem::path>("path") , model, epoch);
+      if (epoch % check == 0 && epoch != 0)
+        save_checkpoint(conf.Get<std::filesystem::path>("path"),
+                        model, epoch+epoch_);
     }
 
     auto t_total_end = std::chrono::high_resolution_clock::now();

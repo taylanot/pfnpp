@@ -320,6 +320,8 @@ private:
       return valueStr;
     if (std::holds_alternative<bool>(val))
       return valueStr == "true" || valueStr == "1";
+    if (std::holds_alternative<std::filesystem::path>(val))
+      return std::filesystem::path(valueStr);
     throw std::runtime_error("Unsupported flag type for: " + name);
   }
 };
@@ -451,7 +453,7 @@ static std::string format_time_dhms(double seconds)
   return oss.str();
 }
 
-inline std::string checkpoint_filename(int epoch,
+inline std::filesystem::path checkpoint_filename(int epoch,
                                        const std::filesystem::path& path )
 {
   namespace fs = std::filesystem;
@@ -460,55 +462,78 @@ inline std::string checkpoint_filename(int epoch,
 
   // If the file exists, add a suffix _1, _2, etc.
   int counter = 1;
-  while (fs::exists(path))
+  while (fs::exists(path/filename))
   {
     std::ostringstream ss;
     ss << "epoch_" << epoch << "_" << counter << ".pt";
-    filename = fs::path(path) / ss.str();
+    filename = ss.str();
     ++counter;
   }
-
-  return filename;
+  return path/filename;
 }
 
-void save_checkpoint( const std::filesystem::path& path,
+bool save_checkpoint( const std::filesystem::path& path,
                       torch::nn::ModuleHolder<auto> model,
                       /* torch::optim::Optimizer& optimizer, */
                       int epoch )
 {
-  const std::string name = checkpoint_filename(epoch,path);
+  try
+  {
+    PRINT(path);
+    const auto name = checkpoint_filename(epoch,path);
+    PRINT(name);
 
-  torch::serialize::OutputArchive archive;
+    torch::serialize::OutputArchive archive;
 
-  // Save model parameters
-  model->save(archive);
+    // Save model parameters
+    model->save(archive);
 
-  // Save optimizer state
-  /* optimizer.save(archive); */
+    // Save optimizer state
+    /* optimizer.save(archive); */
 
-  // Save epoch metadata
-  archive.write("epoch", torch::tensor(epoch));
+    // Save epoch metadata
+    archive.write("epoch", torch::tensor(epoch));
 
-  archive.save_to(name);
+    archive.save_to(name);
+    return true;
+  }
+  catch (const c10::Error& e)
+  {
+    std::cerr << "Could not save checkpoint: " << e.what() << std::endl;
+    return false;
+  }
+
 }
 
-void load_checkpoint( const std::filesystem::path& path,
-                      torch::nn::ModuleHolder<auto> model,
+int load_checkpoint( const std::filesystem::path& path,
+                     torch::nn::ModuleHolder<auto> model )
                       /* torch::optim::Optimizer& optimizer, */
-                      size_t epoch )
+                      /* int epoch ) */
 {
-  torch::serialize::InputArchive archive;
-  archive.load_from(path);
+  try
+  {
+    torch::serialize::InputArchive archive;
+    archive.load_from(path);
 
-  // Restore model parameters
-  model->load(archive);
+    // Restore model parameters
+    model->load(archive);
 
-  // Restore optimizer state
-  /* optimizer.load(archive); */
+    // Restore optimizer state
+    /* optimizer.load(archive); */
 
-  // Restore epoch metadata
-  torch::Tensor epoch_tensor;
-  archive.read("epoch", epoch_tensor);
+    // Restore epoch metadata
+    torch::Tensor epoch_tensor;
+    archive.read("epoch", epoch_tensor);
 
-  epoch_tensor.item<int64_t>();
+    auto epoch = epoch_tensor.item<int>();
+    /* epoch = epoch_tensor.item<int>(); */
+    /* epoch = size_t(epoch_tensor.item<int>()); */
+    return epoch;
+  }
+  catch (const c10::Error& e)
+  {
+    std::cerr << "Could not load checkpoint: " << e.what() << std::endl;
+    int epoch = 0;
+    return epoch;
+  }
 }

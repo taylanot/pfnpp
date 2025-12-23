@@ -26,43 +26,61 @@
 int main(int argc, char** argv)
 {
   namespace fs = std::filesystem;
-  CLIStore& cli = CLIStore::GetInstance();
+  CLIStore& conf = CLIStore::GetInstance();
 
   // -------------------------
   // Register flags
   // -------------------------
-  cli.Register<size_t>("epochs", 10);                
-  cli.Register<size_t>("seed", 25);              
-  cli.Register<double>("lr", 0.001);           
-  cli.Register<size_t>("nbin", 100);           
-  cli.Register<size_t>("nsamp", 100);           
-  cli.Register<size_t>("nfeat", 1);           
-  cli.Register<size_t>("nset", 20);           
-  cli.Register<fs::path>("path", "./simple");           
+  conf.Register<int>("epochs", 10);                
+  conf.Register<size_t>("seed", 25);              
+  conf.Register<double>("lr", 0.001);           
+  conf.Register<size_t>("nbin", 100);           
+  conf.Register<size_t>("nsamp", 100);           
+  conf.Register<size_t>("nfeat", 1);           
+  conf.Register<size_t>("nset", 20);           
+  conf.Register<size_t>("checks", 20);           
+  conf.Register<fs::path>("path", "./simple");           
 
   // -------------------------
   // Parse command line
   // -------------------------
-  cli.Parse(argc, argv);
+  conf.Parse(argc, argv);
 
   // -------------------------
   // Access flag values
   // -------------------------
-  auto lr = cli.Get<double>("lr");
-  auto seed = cli.Get<size_t>("seed");
+  auto lr = conf.Get<double>("lr");
+  auto seed = conf.Get<size_t>("seed");
 
   // -------------------------
   // Print all registered flags
   // -------------------------
-  cli.Print();
+  conf.Print();
 
+  // -------------------------
+  // Create the path
+  // -------------------------
   torch::manual_seed(seed);
 
-  auto linprior = prior::LinearTasks(0, 1, 1);
 
-  model::SimplePFN pfn(linprior, cli.Get<size_t>("nsamp"));
-  torch::optim::AdamW opt(pfn->parameters(),torch::optim::AdamWOptions(lr));
-  train::Simple(linprior, pfn, opt, cli);
+  auto pr = prior::LinearTasks(0, 1, 1);
+
+  if (!is_regular_file(conf.Get<fs::path>("path")))
+  {
+    fs::create_directories(conf.Get<fs::path>("path"));
+    model::SimplePFN pfn(pr, conf.Get<size_t>("nsamp"));
+    torch::optim::AdamW opt(pfn->parameters(),torch::optim::AdamWOptions(lr));
+    train::Simple(pr, pfn, opt, conf);
+  }
+  else
+  {
+    model::SimplePFN pfn(pr, conf.Get<size_t>("nsamp"));
+    auto epoch = load_checkpoint(conf.Get<fs::path>("path"), pfn);
+    conf.Set<fs::path>("path",conf.Get<fs::path>("path").remove_filename());
+    torch::optim::AdamW opt(pfn->parameters(),torch::optim::AdamWOptions(lr));
+    train::Simple( pr, pfn, opt, conf, epoch );
+  }
+
   /* torch::save(pfn,"pfn.pt"); */
 
   /* if (cli.Get<std::string>("mode") == "train") */
