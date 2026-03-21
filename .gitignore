@@ -9,6 +9,13 @@ cmake_install.cmake
 Makefile
 
 # -----------------------------
+# Soms heb je een dummy nodig.
+# -----------------------------
+_dummy.cpp
+_dummy.csv
+_dummy.h
+
+# -----------------------------
 # Compiled binaries and objects
 # -----------------------------
 *.o
